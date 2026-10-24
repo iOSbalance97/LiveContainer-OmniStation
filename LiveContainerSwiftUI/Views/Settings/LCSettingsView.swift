@@ -67,7 +67,9 @@ struct LCSettingsView: View {
     @AppStorage("LCWaitForDebugger") var waitForDebugger = false
     @AppStorage("LCSharePrivateDataWithLiveProcess") var sharePrivateDataWithLiveProcess = false
     @AppStorage("BKNoWatchdogs") var disableLiveProcessWatchdog = false
-    
+    @AppStorage("LCOmniStationOpenWithController") var omniStationOpenWithController = false
+    @AppStorage("LCOmniStationLaunchWithJIT") var omniStationLaunchWithJIT = true
+
     @EnvironmentObject private var sharedModel : SharedModel
     
     @State private var isViewAppeared = false
@@ -189,7 +191,22 @@ struct LCSettingsView: View {
                 } footer: {
                     Text("lc.settings.JitDesc".loc)
                 }
-                
+
+                if UserDefaults.omniStationExist() && sharedModel.multiLCStatus != 2 {
+                    Section {
+                        Toggle(isOn: $omniStationOpenWithController) {
+                            Text("Abrir OmniStation si hay un mando conectado")
+                        }
+                        Toggle(isOn: $omniStationLaunchWithJIT) {
+                            Text("Abrir OmniStation con JIT")
+                        }
+                    } header: {
+                        Text("OmniStation")
+                    } footer: {
+                        Text("Al abrir LiveContainer con un mando conectado, se abrirá OmniStation directamente. Si vuelves a LiveContainer desde OmniStation, o la última apertura falló, se queda en LiveContainer.")
+                    }
+                }
+
                 Section {
                     Picker(selection: $selected32BitEmulator) {
                         ForEach(sharedModel.arm32EmuApps, id: \.self) { app in

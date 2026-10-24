@@ -115,6 +115,8 @@ struct LCTabView: View {
     }
     
     func dispatchURL(url: URL) {
+        // LiveContainer was opened for something specific, don't auto open OmniStation
+        OmniStationAutoOpen.urlReceived = true
         repeat {
             if url.isFileURL {
                 sharedModel.selectedTab = .apps

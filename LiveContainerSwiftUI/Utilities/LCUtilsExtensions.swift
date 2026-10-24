@@ -523,4 +523,12 @@ extension LCUtils {
             try await sideStoreApp.runApp(bundleIdOverride: "builtinSideStore", urlStr: urlStr)
         }
     }
+
+    static func openOmniStation(delegate: LCAppModelDelegate? = nil, urlStr: String? = nil) {
+        let omniStationApp = LCAppModel(appInfo: BuiltInOmniStationAppInfo.shared, delegate: delegate)
+
+        Task {
+            try await omniStationApp.runApp(multitask: false, containerFolderName: BuiltInOmniStationAppInfo.containerFolderName, bundleIdOverride: BuiltInOmniStationAppInfo.launchName, urlStr: urlStr)
+        }
+    }
 }

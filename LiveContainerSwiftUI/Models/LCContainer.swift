@@ -188,6 +188,11 @@ extension LCAppInfo {
                 container.resolvedContainerURL = LCPath.docPath.appendingPathComponent("SideStore")
                 return [container]
             }
+            if self is BuiltInOmniStationAppInfo {
+                let container = LCContainer(folderName: BuiltInOmniStationAppInfo.containerFolderName, name: "OmniStation", isShared: false)
+                container.resolvedContainerURL = LCPath.docPath.appendingPathComponent("OmniStation")
+                return [container]
+            }
             
             var upgrade = false
             // upgrade

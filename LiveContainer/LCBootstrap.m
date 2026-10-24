@@ -33,6 +33,8 @@ bool isLiveProcess = false;
 bool isSharedBundle = false;
 bool isSideStore = false;
 bool sideStoreExist = false;
+bool isOmniStation = false;
+bool omniStationExist = false;
 
 @implementation NSUserDefaults(LiveContainer)
 + (instancetype)lcUserDefaults {
@@ -72,6 +74,12 @@ bool sideStoreExist = false;
 }
 + (bool)sideStoreExist {
     return sideStoreExist;
+}
++ (bool)isOmniStation {
+    return isOmniStation;
+}
++ (bool)omniStationExist {
+    return omniStationExist;
 }
 
 + (NSString*)lcGuestAppId {
@@ -253,7 +261,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     if([[lcUserDefaults objectForKey:@"LCWaitForDebugger"] boolValue]) {
         sleep(100);
     }
-    if (!LCSharedUtils.certificatePassword && !isSideStore) {
+    if (!LCSharedUtils.certificatePassword && !isSideStore && !isOmniStation) {
 #if !TARGET_OS_SIMULATOR
         if(@available(iOS 26.0 ,*))  {
             return @"JITLess mode is required since iOS 26. Please set it up in settings. \nPlease go to LiveContainer settings -> tap \"Import Certificate from SideStore\" / \"Import Certificate\"";
@@ -275,7 +283,10 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     NSURL *appGroupFolder = nil;
     
     NSString *bundlePath = 0;
-    if(!isSideStore) {
+    if(isOmniStation) {
+        // built-in OmniStation is never launched in multitask mode, so it always lives in the main bundle
+        bundlePath = [[NSBundle.mainBundle.bundleURL URLByAppendingPathComponent:@"Frameworks/OmniStationApp.framework"] path];
+    } else if(!isSideStore) {
         bundlePath = [NSString stringWithFormat:@"%@/Applications/%@", docPath, selectedApp];
     } else if (isLiveProcess) {
         bundlePath = [[NSBundle.mainBundle.bundleURL.URLByDeletingLastPathComponent.URLByDeletingLastPathComponent URLByAppendingPathComponent:@"Frameworks/SideStoreApp.framework"] path];
@@ -335,7 +346,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         return @"Container not found!";
     }
     
-    if(isLiveProcess && !isSideStore) {
+    if(isLiveProcess && !isSideStore && !isOmniStation) {
         lcAppUrlScheme = [lcUserDefaults stringForKey:@"hostUrlScheme"];
         [lcUserDefaults removeObjectForKey:@"hostUrlScheme"];
     }
@@ -424,6 +435,8 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
         } else {
             newHomePath = [docPath stringByAppendingPathComponent:@"SideStore"];
         }
+    } else if(isOmniStation) {
+        newHomePath = [docPath stringByAppendingPathComponent:@"OmniStation"];
     } else if (bookmarkURL) {
         newHomePath = bookmarkURL.path;
     } else if(isSharedBundle) {
@@ -511,7 +524,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     
     // hook NSUserDefault before running libraries' initializers
     NUDGuestHooksInit();
-    if(!isSideStore) {
+    if(!isSideStore && !isOmniStation) {
         SecItemGuestHooksInit();
         NSFMGuestHooksInit();
         initDead10ccFix();
@@ -522,7 +535,7 @@ static NSString* invokeAppMain(NSString *selectedApp, NSString *selectedContaine
     // ignore setting handler from guest app
     litehook_rebind_symbol(LITEHOOK_REBIND_GLOBAL, NSSetUncaughtExceptionHandler, hook_do_nothing, nil);
     
-    BOOL hookDlopen = !isSideStore && !isSharedBundle && LCSharedUtils.certificatePassword && isLiveProcess;
+    BOOL hookDlopen = !isSideStore && !isOmniStation && !isSharedBundle && LCSharedUtils.certificatePassword && isLiveProcess;
     DyldHooksInit([guestAppInfo[@"hideLiveContainer"] boolValue], hookDlopen, [guestAppInfo[@"spoofSDKVersion"] unsignedIntValue]);
     
     if([guestContainerInfo[@"spoofIdentifierForVendor"] boolValue]) {
@@ -732,6 +745,16 @@ int LiveContainerMain(int argc, char *argv[]) {
         selectedApp = nil;
         [lcUserDefaults removeObjectForKey:@"selected"];
         [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+        // the user explicitly asked for the LiveContainer UI (e.g. "back to LiveContainer" from OmniStation),
+        // so don't jump to OmniStation automatically on this launch
+        if(!isLiveProcess) {
+            [lcUserDefaults setBool:YES forKey:@"LCOmniStationSkipAutoOpen"];
+        }
+    }
+
+    if(!isLiveProcess && !selectedApp && [lcUserDefaults objectForKey:@"error"]) {
+        // last launch failed: show the error in LiveContainer instead of auto opening OmniStation again
+        [lcUserDefaults setBool:YES forKey:@"LCOmniStationSkipAutoOpen"];
     }
     
     if(isLiveProcess) {
@@ -747,8 +770,23 @@ int LiveContainerMain(int argc, char *argv[]) {
             [lcUserDefaults setBool:NO forKey:@"LCOpenSideStore"];
         }
     }
-    
-    if(selectedApp && !isSideStore && !selectedContainer) {
+
+    if(!isLiveProcess) {
+        omniStationExist = [NSFileManager.defaultManager fileExistsAtPath:[lcMainBundle.bundlePath stringByAppendingPathComponent:@"Frameworks/OmniStationApp.framework"]];
+    }
+
+    if(!isSideStore && [selectedApp isEqualToString:@"builtinOmniStation"]) {
+        if(omniStationExist) {
+            isOmniStation = true;
+        } else {
+            // OmniStation is not bundled in this build, fall back to the LiveContainer UI
+            selectedApp = nil;
+            [lcUserDefaults removeObjectForKey:@"selected"];
+            [lcUserDefaults removeObjectForKey:@"selectedContainer"];
+        }
+    }
+
+    if(selectedApp && !isSideStore && !isOmniStation && !selectedContainer) {
         selectedContainer = [LCSharedUtils findDefaultContainerWithBundleId:selectedApp];
     }
     NSString* runningLC = [LCSharedUtils getContainerUsingLCSchemeWithFolderName:selectedContainer];

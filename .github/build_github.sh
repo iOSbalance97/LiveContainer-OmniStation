@@ -66,6 +66,47 @@ mv ./Payload/LiveContainer.app/Frameworks/SideStoreApp.framework/PlugIns/AltWidg
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable LiveWidgetExtension"  ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/Info.plist
 mv ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/AltWidgetExtension ./Payload/LiveContainer.app/PlugIns/LiveWidgetExtension.appex/LiveWidgetExtension
 
+# OmniStation (optional): bundled the same way as SideStore when a source is configured
+# - OMNISTATION_IPA_URL: direct download link to the .ipa, or
+# - OMNISTATION_REPO (owner/repo) + optional OMNISTATION_TAG: .ipa taken from that repo's releases
+#   (OMNISTATION_TOKEN is needed if that repo is private)
+if [ -n "$OMNISTATION_IPA_URL" ] || [ -n "$OMNISTATION_REPO" ]; then
+    rm -rf tmp_omni
+    mkdir tmp_omni
+    if [ -n "$OMNISTATION_IPA_URL" ]; then
+        curl -fL --retry 3 -o tmp_omni/OmniStation.ipa "$OMNISTATION_IPA_URL" || { echo "OmniStation: download failed"; exit 1; }
+    else
+        if [ -n "$OMNISTATION_TAG" ]; then
+            GH_TOKEN="${OMNISTATION_TOKEN:-$GITHUB_TOKEN}" gh release download "$OMNISTATION_TAG" --repo "$OMNISTATION_REPO" --pattern "*.ipa" --dir tmp_omni || { echo "OmniStation: release download failed"; exit 1; }
+        else
+            GH_TOKEN="${OMNISTATION_TOKEN:-$GITHUB_TOKEN}" gh release download --repo "$OMNISTATION_REPO" --pattern "*.ipa" --dir tmp_omni || { echo "OmniStation: release download failed"; exit 1; }
+        fi
+        OMNI_IPA=$(ls tmp_omni/*.ipa | head -n 1)
+        [ -n "$OMNI_IPA" ] || { echo "OmniStation: no .ipa found in the release"; exit 1; }
+        mv "$OMNI_IPA" tmp_omni/OmniStation.ipa
+    fi
+    unzip -q tmp_omni/OmniStation.ipa -d tmp_omni || { echo "OmniStation: unzip failed"; exit 1; }
+    OMNI_APP=$(ls -d tmp_omni/Payload/*.app | head -n 1)
+    [ -n "$OMNI_APP" ] || { echo "OmniStation: no .app inside the ipa"; exit 1; }
+    OMNI_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$OMNI_APP/Info.plist")
+    [ -n "$OMNI_EXEC" ] || { echo "OmniStation: CFBundleExecutable not found"; exit 1; }
+    OMNI_DEST=./Payload/LiveContainer.app/Frameworks/OmniStationApp.framework
+
+    rm -rf "$OMNI_DEST"
+    mv "$OMNI_APP" "$OMNI_DEST"
+    # app extensions and old signatures can't live inside a framework; the store signs everything again on install
+    rm -rf "$OMNI_DEST/PlugIns" "$OMNI_DEST/Extensions" "$OMNI_DEST/Watch" "$OMNI_DEST/_CodeSignature" "$OMNI_DEST/embedded.mobileprovision"
+
+    ./dylibify "$OMNI_DEST/$OMNI_EXEC" "$OMNI_DEST/$OMNI_EXEC.dylib" || { echo "OmniStation: dylibify failed"; exit 1; }
+    rm "$OMNI_DEST/$OMNI_EXEC"
+    mv "$OMNI_DEST/$OMNI_EXEC.dylib" "$OMNI_DEST/$OMNI_EXEC"
+    ldid -S"" "$OMNI_DEST/$OMNI_EXEC"
+    cp ./.github/omnilc/LCAppInfo.plist "$OMNI_DEST/"
+    echo "OmniStation bundled from $OMNI_APP (executable: $OMNI_EXEC)"
+else
+    echo "OmniStation: no source configured, building without it"
+fi
+
 # Sign
 rm -r .zsign_cache
 find payloadlc/Payload -type d -name "_CodeSignature" -exec rm -r {} +

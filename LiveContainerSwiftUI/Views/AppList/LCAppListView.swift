@@ -8,6 +8,7 @@
 import Combine
 import SwiftUI
 import UniformTypeIdentifiers
+import GameController
 
 class SearchContext: ObservableObject {
     @Published var query: String = ""
@@ -247,10 +248,21 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                             helpPresent = true
                         }
                     }
-                    
+
 
                 }
-                
+
+                ToolbarItem(placement: .topBarLeading) {
+                    if(UserDefaults.omniStationExist()) {
+                        Button {
+                            LCUtils.openOmniStation(delegate: self)
+                        } label: {
+                            IconImageView(icon: BuiltInOmniStationAppInfo.shared.iconIsDarkIcon(darkModeIcon))
+                                .frame(width: UIFont.preferredFont(forTextStyle: .body).lineHeight, height: UIFont.preferredFont(forTextStyle: .body).lineHeight)
+                        }
+                    }
+                }
+
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("lc.appList.openLink".loc, systemImage: "link", action: {
                         Task { await onOpenWebViewTapped() }
@@ -492,6 +504,44 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
             app.delegate = self
         }
         didAppear = true
+        autoOpenOmniStationIfNeeded()
+    }
+
+    // Opens the built-in OmniStation instead of staying in LiveContainer when a game controller is connected.
+    // Only once per launch, and never when LiveContainer was opened on purpose (back to LiveContainer, a URL, or an error to show).
+    func autoOpenOmniStationIfNeeded() {
+        if OmniStationAutoOpen.checked {
+            return
+        }
+        OmniStationAutoOpen.checked = true
+
+        let defaults = UserDefaults.standard
+        let skipThisLaunch = defaults.bool(forKey: BuiltInOmniStationAppInfo.skipAutoOpenKey)
+        defaults.removeObject(forKey: BuiltInOmniStationAppInfo.skipAutoOpenKey)
+
+        guard !skipThisLaunch,
+              UserDefaults.omniStationExist(),
+              sharedModel.multiLCStatus != 2,
+              defaults.bool(forKey: BuiltInOmniStationAppInfo.openWithControllerKey) else {
+            return
+        }
+
+        Task { @MainActor in
+            // controllers that are already paired may take a moment to show up after launch
+            var controllerConnected = !GCController.controllers().isEmpty
+            var waitedSteps = 0
+            while !controllerConnected && waitedSteps < 12 {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                waitedSteps += 1
+                controllerConnected = !GCController.controllers().isEmpty
+            }
+            guard controllerConnected,
+                  !OmniStationAutoOpen.urlReceived,
+                  UIApplication.shared.applicationState == .active else {
+                return
+            }
+            LCUtils.openOmniStation(delegate: self)
+        }
     }
     
     
@@ -1033,6 +1083,11 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         
         if appFound == nil && bundleId == "builtinSideStore" {
             appFound = LCAppModel(appInfo: BuiltInSideStoreAppInfo.shared)
+        }
+
+        if appFound == nil && bundleId == BuiltInOmniStationAppInfo.launchName && UserDefaults.omniStationExist() {
+            LCUtils.openOmniStation(delegate: self, urlStr: urlStr)
+            return
         }
         
         if isFoundAppLocked && !sharedModel.isHiddenAppUnlocked {

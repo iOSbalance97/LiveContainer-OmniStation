@@ -10,6 +10,11 @@ on:
         type: boolean
         required: false
 
+# uploading several files from the phone creates several commits: only the newest one is built
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build using xcodebuild command
@@ -67,6 +72,12 @@ jobs:
           name: ${{ env.archive_path }}.xcarchive.tar
           path: ${{ env.archive_path }}.xcarchive.tar
       - name: Create IPA
+        env:
+          OMNISTATION_IPA_URL: ${{ vars.OMNISTATION_IPA_URL }}
+          OMNISTATION_REPO: ${{ vars.OMNISTATION_REPO }}
+          OMNISTATION_TAG: ${{ vars.OMNISTATION_TAG }}
+          OMNISTATION_TOKEN: ${{ secrets.OMNISTATION_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           sh .github/build_github.sh
 
@@ -104,22 +115,6 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           name: ${{ needs.build.outputs.artifact2 }}
-      - name: Get Commit Info
-        id: commit_info
-        run: |
-          COMMIT_SHA=$(git rev-parse HEAD)
-          COMMIT_MSG=$(git log -1 --pretty=%s)
-          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
-          echo "COMMIT_MSG=$COMMIT_MSG" >> $GITHUB_ENV
-      - name: Update AltStore source
-        id: update_source
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NIGHTLY_LINK: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}
-          commit_sha: ${{ env.COMMIT_SHA }}
-          commit_msg: ${{ env.COMMIT_MSG }}
-        run: |
-          python .github/update_json.py
       - name: Nightly Release
         uses: andelf/nightly-release@5834076edc55cc05975561c9722043f072ac5c26
         env:
@@ -133,12 +128,3 @@ jobs:
           files: |
             ${{ needs.build.outputs.artifact }}
             ${{ needs.build.outputs.artifact2 }}
-            .github/apps_nightly.json
-      - name: Update apps.json in Release 1.0
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: "1.0"
-          files: |
-            .github/apps_ss_lc.json
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
