@@ -76,11 +76,14 @@ if [ -n "$OMNISTATION_IPA_URL" ] || [ -n "$OMNISTATION_REPO" ]; then
     if [ -n "$OMNISTATION_IPA_URL" ]; then
         curl -fL --retry 3 -o tmp_omni/OmniStation.ipa "$OMNISTATION_IPA_URL" || { echo "OmniStation: download failed"; exit 1; }
     else
-        if [ -n "$OMNISTATION_TAG" ]; then
-            GH_TOKEN="${OMNISTATION_TOKEN:-$GITHUB_TOKEN}" gh release download "$OMNISTATION_TAG" --repo "$OMNISTATION_REPO" --pattern "*.ipa" --dir tmp_omni || { echo "OmniStation: release download failed"; exit 1; }
-        else
-            GH_TOKEN="${OMNISTATION_TOKEN:-$GITHUB_TOKEN}" gh release download --repo "$OMNISTATION_REPO" --pattern "*.ipa" --dir tmp_omni || { echo "OmniStation: release download failed"; exit 1; }
+        OMNI_TAG="$OMNISTATION_TAG"
+        if [ -z "$OMNI_TAG" ]; then
+            # newest release (pre-releases included) that has an .ipa attached
+            OMNI_TAG=$(GH_TOKEN="${OMNISTATION_TOKEN:-$GITHUB_TOKEN}" gh api "repos/$OMNISTATION_REPO/releases?per_page=30" --jq '[.[] | select(.draft == false) | select(any(.assets[]; .name | endswith(".ipa")))] | sort_by(.published_at) | reverse | .[0].tag_name // empty')
+            [ -n "$OMNI_TAG" ] || { echo "OmniStation: no release with an .ipa found in $OMNISTATION_REPO"; exit 1; }
         fi
+        echo "OmniStation: using release $OMNI_TAG from $OMNISTATION_REPO"
+        GH_TOKEN="${OMNISTATION_TOKEN:-$GITHUB_TOKEN}" gh release download "$OMNI_TAG" --repo "$OMNISTATION_REPO" --pattern "*.ipa" --dir tmp_omni || { echo "OmniStation: release download failed"; exit 1; }
         OMNI_IPA=$(ls tmp_omni/*.ipa | head -n 1)
         [ -n "$OMNI_IPA" ] || { echo "OmniStation: no .ipa found in the release"; exit 1; }
         mv "$OMNI_IPA" tmp_omni/OmniStation.ipa

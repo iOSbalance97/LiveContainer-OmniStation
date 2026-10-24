@@ -74,7 +74,7 @@ jobs:
       - name: Create IPA
         env:
           OMNISTATION_IPA_URL: ${{ vars.OMNISTATION_IPA_URL }}
-          OMNISTATION_REPO: ${{ vars.OMNISTATION_REPO }}
+          OMNISTATION_REPO: ${{ vars.OMNISTATION_REPO || 'iOSbalance97/OmniStationDock' }}
           OMNISTATION_TAG: ${{ vars.OMNISTATION_TAG }}
           OMNISTATION_TOKEN: ${{ secrets.OMNISTATION_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
