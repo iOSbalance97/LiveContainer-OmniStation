@@ -51,9 +51,9 @@ struct LCTabView: View {
                 .tag(LCTabIdentifier.settings)
         }
         .overlay {
-            // OmniStation is about to open by itself: hide LiveContainer's list in between
+            // controller chooser, or OmniStation about to open: hide LiveContainer's list in between
             if omniStationCover.visible {
-                OmniStationLaunchCoverView()
+                OmniStationLaunchCoverView(cover: omniStationCover)
             }
         }
         .downloadAlert(helper: downloadHelper)
@@ -108,11 +108,13 @@ struct LCTabView: View {
             checkAndSaveBundleId()
             checkGetTaskAllow()
             checkPrivateContainerBookmark()
-            // safety net: never leave the OmniStation cover over LiveContainer
-            // (when OmniStation does open, LiveContainer restarts long before this)
-            if omniStationCover.visible {
+            // safety net: never leave the black screen over LiveContainer (the chooser stays until
+            // the user picks; when OmniStation does open, LiveContainer restarts long before this)
+            if omniStationCover.phase == .detecting {
                 try? await Task.sleep(nanoseconds: 6_000_000_000)
-                omniStationCover.hide()
+                if omniStationCover.phase == .detecting {
+                    omniStationCover.hide()
+                }
             }
         }
         .onReceive(pub) { out in
@@ -128,9 +130,17 @@ struct LCTabView: View {
     }
     
     func dispatchURL(url: URL) {
-        // LiveContainer was opened for something specific, don't auto open OmniStation
+        // LiveContainer was opened for something specific: no chooser. A link to the built-in OmniStation
+        // keeps the black screen until it opens; anything else shows LiveContainer.
         OmniStationAutoOpen.urlReceived = true
-        OmniStationLaunchCover.shared.hide()
+        let opensOmniStation = url.host?.lowercased() == "livecontainer-launch"
+            && UserDefaults.omniStationExist()
+            && (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.contains {
+                $0.name == "bundle-name" && $0.value == BuiltInOmniStationAppInfo.launchName
+            } ?? false)
+        if !opensOmniStation {
+            OmniStationLaunchCover.shared.hide()
+        }
         repeat {
             if url.isFileURL {
                 sharedModel.selectedTab = .apps

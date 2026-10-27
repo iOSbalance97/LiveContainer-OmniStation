@@ -20,6 +20,12 @@ final class BuiltInOmniStationAppInfo : LCAppInfo {
     static let openWithControllerKey = "LCOmniStationOpenWithController"
     static let launchWithJITKey = "LCOmniStationLaunchWithJIT"
     static let skipAutoOpenKey = "LCOmniStationSkipAutoOpen"
+    static let lastChoiceKey = "LCOmniStationChooserLastChoice"
+
+    // Opens the built-in OmniStation directly, e.g. from a Shortcuts "Open URL" action
+    static var launchURLString: String {
+        "\(LCUtils.appUrlScheme() ?? "livecontainer")://livecontainer-launch?bundle-name=\(launchName)"
+    }
 
     private override init() {
         super.init(bundlePath: Bundle.main.bundleURL.appendingPathComponent("Frameworks/OmniStationApp.framework").path)
@@ -145,14 +151,14 @@ final class BuiltInOmniStationAppInfo : LCAppInfo {
     }
 }
 
-// State used to decide, once per LiveContainer launch, whether to jump straight into OmniStation
+// State used to decide, once per LiveContainer launch, whether to show the LiveContainer / OmniStation chooser
 enum OmniStationAutoOpen {
     // set when LiveContainer was opened through a URL (install, launch another app...), so we stay in LiveContainer
     static var urlReceived = false
     // the decision is only taken once per process
     static var checked = false
 
-    // Read once, at launch, before the skip flag is cleared: will LiveContainer try to open OmniStation?
+    // Read once, at launch, before the skip flag is cleared: will LiveContainer offer OmniStation?
     static let mayOpenAtLaunch: Bool = {
         let defaults = UserDefaults.standard
         return UserDefaults.omniStationExist()
@@ -160,41 +166,4 @@ enum OmniStationAutoOpen {
             && defaults.bool(forKey: BuiltInOmniStationAppInfo.openWithControllerKey)
             && !defaults.bool(forKey: BuiltInOmniStationAppInfo.skipAutoOpenKey)
     }()
-}
-
-// Black screen with OmniStation's icon while LiveContainer is about to open OmniStation by itself,
-// so the LiveContainer app list doesn't flash in between.
-final class OmniStationLaunchCover: ObservableObject {
-    static let shared = OmniStationLaunchCover()
-
-    // not with LiveContainer's JIT: its "waiting for JIT" dialog has to stay visible
-    @Published private(set) var visible: Bool = OmniStationAutoOpen.mayOpenAtLaunch
-        && !(UserDefaults.standard.object(forKey: BuiltInOmniStationAppInfo.launchWithJITKey) as? Bool ?? false)
-
-    func hide() {
-        if visible {
-            withAnimation(.easeOut(duration: 0.2)) {
-                visible = false
-            }
-        }
-    }
-}
-
-struct OmniStationLaunchCoverView: View {
-    var body: some View {
-        ZStack {
-            Color.black
-            VStack(spacing: 20) {
-                if let icon = BuiltInOmniStationAppInfo.shared.iconIsDarkIcon(true) {
-                    Image(uiImage: icon)
-                        .resizable()
-                        .frame(width: 96, height: 96)
-                }
-                ProgressView()
-                    .tint(.white)
-            }
-        }
-        .ignoresSafeArea()
-        .transition(.opacity)
-    }
 }

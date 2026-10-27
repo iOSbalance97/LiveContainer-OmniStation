@@ -195,15 +195,20 @@ struct LCSettingsView: View {
                 if UserDefaults.omniStationExist() && sharedModel.multiLCStatus != 2 {
                     Section {
                         Toggle(isOn: $omniStationOpenWithController) {
-                            Text("Abrir OmniStation si hay un mando conectado")
+                            Text("Elegir LiveContainer u OmniStation si hay un mando conectado")
                         }
                         Toggle(isOn: $omniStationLaunchWithJIT) {
                             Text("Abrir OmniStation con el JIT de LiveContainer (StikDebug)")
                         }
+                        Button {
+                            UIPasteboard.general.string = BuiltInOmniStationAppInfo.launchURLString
+                        } label: {
+                            Label("Copiar URL de OmniStation", systemImage: "link")
+                        }
                     } header: {
                         Text("OmniStation")
                     } footer: {
-                        Text("Al abrir LiveContainer con un mando conectado, se abrirá OmniStation directamente. Si vuelves a LiveContainer desde OmniStation, o la última apertura falló, se queda en LiveContainer.\n\nOmniStation activa su propio JIT con StikJIT (su archivo de emparejamiento y LocalDevVPN). El JIT de LiveContainer solo hace falta si prefieres StikDebug.")
+                        Text("Al abrir LiveContainer con un mando conectado, podrás elegir con el mando entre LiveContainer y OmniStation. Sin mando, se abre LiveContainer. Si vuelves a LiveContainer desde OmniStation, o la última apertura falló, se queda en LiveContainer.\n\nLa URL de OmniStation la abre directamente: úsala, por ejemplo, en la app Atajos con «Abrir URL» y añádela a la pantalla de inicio.\n\nOmniStation activa su propio JIT con StikJIT (su archivo de emparejamiento y LocalDevVPN). El JIT de LiveContainer solo hace falta si prefieres StikDebug.")
                     }
                 }
 

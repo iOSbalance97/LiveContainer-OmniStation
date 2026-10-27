@@ -466,8 +466,10 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
             containerFolderName = findDefaultContainerWithBundleId(bundleName);
         }
         // current bundlename and container folder name matches OR sidestore is running and we are launching builtinSideStore
+        // (same for the built-in OmniStation)
         if (([bundleName isEqualToString:NSBundle.mainBundle.bundlePath.lastPathComponent] && [containerId isEqualToString:containerFolderName]) ||
-            (NSUserDefaults.isSideStore && [bundleName isEqualToString:@"builtinSideStore"])) {
+            (NSUserDefaults.isSideStore && [bundleName isEqualToString:@"builtinSideStore"]) ||
+            (NSUserDefaults.isOmniStation && [bundleName isEqualToString:@"builtinOmniStation"])) {
             if(openUrl) {
                 if([openUrl hasPrefix:@"file:"]) {
                     resolveLaunchExtensionFileBookmark();
@@ -480,6 +482,10 @@ static LCControlAppURLHandling LCHandleControlAppURL(NSURL *url, NSString** modi
         } else {
             if([bundleName isEqualToString:@"builtinSideStore"]) {
                 LCShowSwitchAppConfirmation(url, @"SideStore", NO);
+                return LCControlAppURLHandlingStop;
+            }
+            if([bundleName isEqualToString:@"builtinOmniStation"] && NSUserDefaults.omniStationExist) {
+                LCShowSwitchAppConfirmation(url, @"OmniStation", NO);
                 return LCControlAppURLHandlingStop;
             }
             handleLiveContainerLaunch(bundleName, containerFolderName, url);

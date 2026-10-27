@@ -254,11 +254,17 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
 
                 ToolbarItem(placement: .topBarLeading) {
                     if(UserDefaults.omniStationExist()) {
-                        Button {
-                            LCUtils.openOmniStation(delegate: self)
+                        Menu {
+                            Button {
+                                UIPasteboard.general.string = BuiltInOmniStationAppInfo.launchURLString
+                            } label: {
+                                Label("Copiar URL de OmniStation", systemImage: "link")
+                            }
                         } label: {
                             IconImageView(icon: BuiltInOmniStationAppInfo.shared.iconIsDarkIcon(darkModeIcon))
                                 .frame(width: UIFont.preferredFont(forTextStyle: .body).lineHeight, height: UIFont.preferredFont(forTextStyle: .body).lineHeight)
+                        } primaryAction: {
+                            LCUtils.openOmniStation(delegate: self)
                         }
                     }
                 }
@@ -507,7 +513,7 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         autoOpenOmniStationIfNeeded()
     }
 
-    // Opens the built-in OmniStation instead of staying in LiveContainer when a game controller is connected.
+    // With a game controller connected, shows the LiveContainer / OmniStation chooser instead of the app list.
     // Only once per launch, and never when LiveContainer was opened on purpose (back to LiveContainer, a URL, or an error to show).
     func autoOpenOmniStationIfNeeded() {
         if OmniStationAutoOpen.checked {
@@ -540,10 +546,10 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
                 OmniStationLaunchCover.shared.hide()
                 return
             }
-            LCUtils.openOmniStation(delegate: self)
-            // if OmniStation couldn't be opened, LiveContainer is still here: don't leave the cover on
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
-            OmniStationLaunchCover.shared.hide()
+            // controller connected: let the user choose between LiveContainer and OmniStation
+            OmniStationLaunchCover.shared.showChooser {
+                LCUtils.openOmniStation(delegate: self)
+            }
         }
     }
     

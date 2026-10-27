@@ -527,7 +527,9 @@ extension LCUtils {
     static func openOmniStation(delegate: LCAppModelDelegate? = nil, urlStr: String? = nil) {
         let omniStationApp = LCAppModel(appInfo: BuiltInOmniStationAppInfo.shared, delegate: delegate)
 
-        Task {
+        Task { @MainActor in
+            // black with OmniStation's icon until LiveContainer restarts into it
+            OmniStationLaunchCover.shared.showOpening()
             try await omniStationApp.runApp(multitask: false, containerFolderName: BuiltInOmniStationAppInfo.containerFolderName, bundleIdOverride: BuiltInOmniStationAppInfo.launchName, urlStr: urlStr)
         }
     }
