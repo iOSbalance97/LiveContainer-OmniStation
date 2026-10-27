@@ -28,6 +28,6 @@
 	<key>dontSign</key>
 	<true/>
 	<key>isJITNeeded</key>
-	<true/>
+	<false/>
 </dict>
 </plist>

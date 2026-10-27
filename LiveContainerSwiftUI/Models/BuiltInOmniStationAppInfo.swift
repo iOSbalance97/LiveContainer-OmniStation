@@ -31,7 +31,8 @@ final class BuiltInOmniStationAppInfo : LCAppInfo {
 
     override var isJITNeeded: Bool {
         get {
-            return UserDefaults.standard.object(forKey: BuiltInOmniStationAppInfo.launchWithJITKey) as? Bool ?? true
+            // OmniStation activates its own JIT with its StikJIT extension, so LiveContainer doesn't ask for it by default
+            return UserDefaults.standard.object(forKey: BuiltInOmniStationAppInfo.launchWithJITKey) as? Bool ?? false
         }
         set {
             UserDefaults.standard.set(newValue, forKey: BuiltInOmniStationAppInfo.launchWithJITKey)

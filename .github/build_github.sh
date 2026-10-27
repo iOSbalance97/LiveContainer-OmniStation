@@ -97,7 +97,23 @@ if [ -n "$OMNISTATION_IPA_URL" ] || [ -n "$OMNISTATION_REPO" ]; then
 
     rm -rf "$OMNI_DEST"
     mv "$OMNI_APP" "$OMNI_DEST"
-    # app extensions and old signatures can't live inside a framework; the store signs everything again on install
+    # OmniStation's app extensions (JIT helper with StikJIT, MeloNX memory helper) can't live inside a
+    # framework: they go next to LiveContainer's own extensions, with bundle IDs under LiveContainer's
+    # (like LiveWidgetExtension). OmniStation looks for them there when it runs built in.
+    for OMNI_APPEX in "$OMNI_DEST"/PlugIns/*.appex; do
+        [ -d "$OMNI_APPEX" ] || continue
+        OMNI_APPEX_NAME=$(basename "$OMNI_APPEX" .appex)
+        OMNI_APPEX_DEST="./Payload/LiveContainer.app/PlugIns/$OMNI_APPEX_NAME.appex"
+        rm -rf "$OMNI_APPEX_DEST"
+        mv "$OMNI_APPEX" "$OMNI_APPEX_DEST"
+        /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.kdt.livecontainer.$OMNI_APPEX_NAME" "$OMNI_APPEX_DEST/Info.plist" || { echo "OmniStation: can't set the bundle ID of $OMNI_APPEX_NAME"; exit 1; }
+        OMNI_APPEX_EXEC=$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$OMNI_APPEX_DEST/Info.plist")
+        [ -n "$OMNI_APPEX_EXEC" ] && [ -f "$OMNI_APPEX_DEST/$OMNI_APPEX_EXEC" ] || { echo "OmniStation: executable of $OMNI_APPEX_NAME not found"; exit 1; }
+        rm -rf "$OMNI_APPEX_DEST/_CodeSignature" "$OMNI_APPEX_DEST/embedded.mobileprovision"
+        ldid -S "$OMNI_APPEX_DEST/$OMNI_APPEX_EXEC"
+        echo "OmniStation: extension $OMNI_APPEX_NAME.appex -> com.kdt.livecontainer.$OMNI_APPEX_NAME"
+    done
+    # old signatures and anything else that can't live inside a framework; the store signs everything again on install
     rm -rf "$OMNI_DEST/PlugIns" "$OMNI_DEST/Extensions" "$OMNI_DEST/Watch" "$OMNI_DEST/_CodeSignature" "$OMNI_DEST/embedded.mobileprovision"
 
     ./dylibify "$OMNI_DEST/$OMNI_EXEC" "$OMNI_DEST/$OMNI_EXEC.dylib" || { echo "OmniStation: dylibify failed"; exit 1; }

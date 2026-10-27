@@ -68,7 +68,7 @@ struct LCSettingsView: View {
     @AppStorage("LCSharePrivateDataWithLiveProcess") var sharePrivateDataWithLiveProcess = false
     @AppStorage("BKNoWatchdogs") var disableLiveProcessWatchdog = false
     @AppStorage("LCOmniStationOpenWithController") var omniStationOpenWithController = false
-    @AppStorage("LCOmniStationLaunchWithJIT") var omniStationLaunchWithJIT = true
+    @AppStorage("LCOmniStationLaunchWithJIT") var omniStationLaunchWithJIT = false
 
     @EnvironmentObject private var sharedModel : SharedModel
     
@@ -198,12 +198,12 @@ struct LCSettingsView: View {
                             Text("Abrir OmniStation si hay un mando conectado")
                         }
                         Toggle(isOn: $omniStationLaunchWithJIT) {
-                            Text("Abrir OmniStation con JIT")
+                            Text("Abrir OmniStation con el JIT de LiveContainer (StikDebug)")
                         }
                     } header: {
                         Text("OmniStation")
                     } footer: {
-                        Text("Al abrir LiveContainer con un mando conectado, se abrirá OmniStation directamente. Si vuelves a LiveContainer desde OmniStation, o la última apertura falló, se queda en LiveContainer.")
+                        Text("Al abrir LiveContainer con un mando conectado, se abrirá OmniStation directamente. Si vuelves a LiveContainer desde OmniStation, o la última apertura falló, se queda en LiveContainer.\n\nOmniStation activa su propio JIT con StikJIT (su archivo de emparejamiento y LocalDevVPN). El JIT de LiveContainer solo hace falta si prefieres StikDebug.")
                     }
                 }
 
