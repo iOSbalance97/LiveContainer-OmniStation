@@ -18,6 +18,7 @@ struct LCTabView: View {
     @State var shouldToggleMainWindowOpen = false
     @Environment(\.scenePhase) var scenePhase
     @StateObject var downloadHelper = DownloadHelper()
+    @ObservedObject var omniStationCover = OmniStationLaunchCover.shared
 
     let pub = NotificationCenter.default.publisher(for: UIScene.didDisconnectNotification)
     
@@ -48,6 +49,12 @@ struct LCTabView: View {
                     Label("lc.tabView.settings".loc, systemImage: "gearshape.fill")
                 }
                 .tag(LCTabIdentifier.settings)
+        }
+        .overlay {
+            // OmniStation is about to open by itself: hide LiveContainer's list in between
+            if omniStationCover.visible {
+                OmniStationLaunchCoverView()
+            }
         }
         .downloadAlert(helper: downloadHelper)
         .environmentObject(downloadHelper)
@@ -101,6 +108,12 @@ struct LCTabView: View {
             checkAndSaveBundleId()
             checkGetTaskAllow()
             checkPrivateContainerBookmark()
+            // safety net: never leave the OmniStation cover over LiveContainer
+            // (when OmniStation does open, LiveContainer restarts long before this)
+            if omniStationCover.visible {
+                try? await Task.sleep(nanoseconds: 6_000_000_000)
+                omniStationCover.hide()
+            }
         }
         .onReceive(pub) { out in
             if let scene1 = sceneDelegate.window?.windowScene, let scene2 = out.object as? UIWindowScene, scene1 == scene2 {
@@ -117,6 +130,7 @@ struct LCTabView: View {
     func dispatchURL(url: URL) {
         // LiveContainer was opened for something specific, don't auto open OmniStation
         OmniStationAutoOpen.urlReceived = true
+        OmniStationLaunchCover.shared.hide()
         repeat {
             if url.isFileURL {
                 sharedModel.selectedTab = .apps

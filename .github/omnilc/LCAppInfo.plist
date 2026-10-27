@@ -29,5 +29,9 @@
 	<true/>
 	<key>isJITNeeded</key>
 	<false/>
+	<key>fixFilePickerNew</key>
+	<true/>
+	<key>doSymlinkInbox</key>
+	<true/>
 </dict>
 </plist>

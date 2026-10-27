@@ -515,32 +515,35 @@ struct LCAppListView : View, LCAppBannerDelegate, LCAppModelDelegate {
         }
         OmniStationAutoOpen.checked = true
 
-        let defaults = UserDefaults.standard
-        let skipThisLaunch = defaults.bool(forKey: BuiltInOmniStationAppInfo.skipAutoOpenKey)
-        defaults.removeObject(forKey: BuiltInOmniStationAppInfo.skipAutoOpenKey)
+        // read before clearing the skip flag (it's decided once, at launch)
+        let mayOpen = OmniStationAutoOpen.mayOpenAtLaunch
+        UserDefaults.standard.removeObject(forKey: BuiltInOmniStationAppInfo.skipAutoOpenKey)
 
-        guard !skipThisLaunch,
-              UserDefaults.omniStationExist(),
-              sharedModel.multiLCStatus != 2,
-              defaults.bool(forKey: BuiltInOmniStationAppInfo.openWithControllerKey) else {
+        guard mayOpen else {
+            OmniStationLaunchCover.shared.hide()
             return
         }
 
         Task { @MainActor in
-            // controllers that are already paired may take a moment to show up after launch
+            // a controller that is already connected is usually there at once; one that is reconnecting
+            // may take a moment to show up after launch
             var controllerConnected = !GCController.controllers().isEmpty
             var waitedSteps = 0
-            while !controllerConnected && waitedSteps < 12 {
-                try? await Task.sleep(nanoseconds: 100_000_000)
+            while !controllerConnected && !OmniStationAutoOpen.urlReceived && waitedSteps < 24 {
+                try? await Task.sleep(nanoseconds: 50_000_000)
                 waitedSteps += 1
                 controllerConnected = !GCController.controllers().isEmpty
             }
             guard controllerConnected,
                   !OmniStationAutoOpen.urlReceived,
-                  UIApplication.shared.applicationState == .active else {
+                  UIApplication.shared.applicationState != .background else {
+                OmniStationLaunchCover.shared.hide()
                 return
             }
             LCUtils.openOmniStation(delegate: self)
+            // if OmniStation couldn't be opened, LiveContainer is still here: don't leave the cover on
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            OmniStationLaunchCover.shared.hide()
         }
     }
     

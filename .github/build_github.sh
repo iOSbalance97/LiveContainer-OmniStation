@@ -121,6 +121,12 @@ if [ -n "$OMNISTATION_IPA_URL" ] || [ -n "$OMNISTATION_REPO" ]; then
     mv "$OMNI_DEST/$OMNI_EXEC.dylib" "$OMNI_DEST/$OMNI_EXEC"
     ldid -S"" "$OMNI_DEST/$OMNI_EXEC"
     cp ./.github/omnilc/LCAppInfo.plist "$OMNI_DEST/"
+    # OmniStation is a game launcher: let iOS treat LiveContainer as a game (Game Mode, like the
+    # standalone OmniStation). Only in this IPA; LiveContainer.ipa was already packaged above.
+    LC_PLIST=./Payload/LiveContainer.app/Info.plist
+    /usr/libexec/PlistBuddy -c "Set :LSApplicationCategoryType public.app-category.games" "$LC_PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :LSApplicationCategoryType string public.app-category.games" "$LC_PLIST"
+    /usr/libexec/PlistBuddy -c "Set :LSSupportsGameMode true" "$LC_PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :LSSupportsGameMode bool true" "$LC_PLIST"
+    /usr/libexec/PlistBuddy -c "Set :GCSupportsGameMode true" "$LC_PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add :GCSupportsGameMode bool true" "$LC_PLIST"
     echo "OmniStation bundled from $OMNI_APP (executable: $OMNI_EXEC)"
 else
     echo "OmniStation: no source configured, building without it"
