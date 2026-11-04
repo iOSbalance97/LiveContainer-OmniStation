@@ -18,7 +18,7 @@ concurrency:
 jobs:
   build:
     name: Build using xcodebuild command
-    runs-on: macos-latest
+    runs-on: macos-26
     env:
       scheme: LiveContainer
       archive_path: archive
