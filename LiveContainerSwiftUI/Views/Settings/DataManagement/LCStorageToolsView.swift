@@ -55,6 +55,18 @@ enum LCStorageLabels {
         info.labels[key(omniStation)] = "Datos del OmniStation integrado"
         info.protected[key(omniStation)] = "Son los datos del OmniStation integrado. Entra y borra lo que no quieras."
 
+        if let shared = LCStorageScanner.sharedRoot {
+            info.protected[key(shared)] = "Es la carpeta compartida entre LiveContainer y SideStore. Entra y borra lo que haya dentro."
+            info.labels[key(LCPath.lcGroupDocPath)] = "Datos compartidos de LiveContainer"
+            let apps = shared.appendingPathComponent("Apps")
+            info.labels[key(apps)] = "Copias de las apps instaladas por SideStore"
+            info.protected[key(apps)] = "SideStore necesita esta carpeta para renovar las apps. Entra si quieres ver qué copia ocupa más."
+            let payloads = apps.appendingPathComponent("Payloads")
+            info.labels[key(payloads)] = "Copias firmadas (SideStore las usa al renovar)"
+            info.protected[key(payloads)] = "SideStore usa estas copias para renovar las apps; si borras una, tendrá que volver a descargar o reinstalar esa app."
+            info.labels[key(shared.appendingPathComponent("Backups"))] = "Copias de seguridad de SideStore"
+        }
+
         for trash in [LCPath.docPath, LCPath.lcGroupDocPath] {
             info.labels[key(trash.appendingPathComponent(".Trash"))] = "«Eliminados recientemente» de Archivos"
         }
@@ -676,11 +688,11 @@ struct LCStorageToolsSection: View {
             } label: {
                 Label("Explorar la carpeta de LiveContainer", systemImage: "folder.badge.gearshape")
             }
-            if LCPath.lcGroupDocPath.lcStorageKey != LCPath.docPath.lcStorageKey {
+            if let shared = LCStorageScanner.sharedRoot {
                 NavigationLink {
-                    LCStorageExplorerView(url: LCPath.lcGroupDocPath, title: "Grupo de apps", onChange: onChange)
+                    LCStorageExplorerView(url: shared, title: "Carpeta compartida", onChange: onChange)
                 } label: {
-                    Label("Explorar el grupo de apps", systemImage: "folder.badge.person.crop")
+                    Label("Explorar la carpeta compartida (con SideStore)", systemImage: "folder.badge.person.crop")
                 }
             }
             if let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first {

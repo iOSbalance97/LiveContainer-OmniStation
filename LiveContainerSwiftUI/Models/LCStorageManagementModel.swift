@@ -50,6 +50,9 @@ struct LCStorageBreakdown {
     let hiddenRootSize: Int64
     /// LiveContainer's own Library (not visible in Files)
     let lcLibrarySize: Int64
+    /// The rest of the shared folder (app group) LiveContainer borrows from SideStore: signed copies of the apps
+    /// SideStore installs (Apps/Payloads), its backups, caches... iOS counts it for the app in Settings.
+    let sharedRestSize: Int64
     let otherSize: Int64
 
     let appItems: [LCAppStorageItem]
@@ -120,6 +123,7 @@ final class LCStorageManagementModel: ObservableObject {
         case filesTrash
         case hiddenRoot
         case lcLibrary
+        case sharedRest
         case knownRoots
     }
 
@@ -232,6 +236,9 @@ final class LCStorageManagementModel: ObservableObject {
             group.addTask(priority: .utility) {
                 (.knownRoots, LCStorageScanner.combinedSize(of: knownRoots))
             }
+            group.addTask(priority: .utility) {
+                (.sharedRest, LCStorageScanner.sharedRestSize())
+            }
             for try await (category, size) in group {
                 sizesByCategory[category] = size
             }
@@ -244,13 +251,14 @@ final class LCStorageManagementModel: ObservableObject {
         let hiddenRootSize = sizesByCategory[.hiddenRoot] ?? 0
         let lcLibrarySize = sizesByCategory[.lcLibrary] ?? 0
         let knownRootsSize = sizesByCategory[.knownRoots] ?? 0
+        let sharedRestSize = sizesByCategory[.sharedRest] ?? 0
 
         // Other is now only what really has no owner: loose files in the root, leftovers, folders made by hand...
         let explained = appBundleSize + containersSize + orphanContainersSize + appGroupSize + tweaksSize + filesTrashSize + hiddenRootSize
         let otherSize = max(0, knownRootsSize - explained)
 
         return LCStorageBreakdown(
-            totalSize: explained + otherSize + temporaryFilesSize + lcLibrarySize,
+            totalSize: explained + otherSize + temporaryFilesSize + lcLibrarySize + sharedRestSize,
             appBundleSize: appBundleSize,
             containersSize: containersSize,
             orphanContainersSize: orphanContainersSize,
@@ -260,6 +268,7 @@ final class LCStorageManagementModel: ObservableObject {
             filesTrashSize: filesTrashSize,
             hiddenRootSize: hiddenRootSize,
             lcLibrarySize: lcLibrarySize,
+            sharedRestSize: sharedRestSize,
             otherSize: otherSize,
             appItems: appItems,
             orphanContainers: orphanContainers
@@ -411,8 +420,35 @@ final class LCStorageManagementModel: ObservableObject {
 /// Synchronous helpers that walk the disk. They include hidden files (names starting with "."),
 /// which the Files app never shows.
 enum LCStorageScanner {
+    /// Whole app group folder (the one that contains LCPath.lcGroupDocPath), when there is one.
+    static var sharedRoot: URL? {
+        let group = LCPath.lcGroupDocPath
+        guard group.lcStorageKey != LCPath.docPath.lcStorageKey else {
+            return nil
+        }
+        return group.deletingLastPathComponent()
+    }
+
+    /// Everything in the shared folder except LiveContainer's own part (already counted in the other categories).
+    static func sharedRestSize() -> Int64 {
+        guard let root = sharedRoot,
+              let names = try? FileManager.default.contentsOfDirectory(atPath: root.path) else {
+            return 0
+        }
+        let ownKey = LCPath.lcGroupDocPath.lcStorageKey
+        var total: Int64 = 0
+        for name in names {
+            let url = root.appendingPathComponent(name)
+            if url.lcStorageKey == ownKey {
+                continue
+            }
+            total += size(of: url)
+        }
+        return total
+    }
+
     static var scanRoots: [URL] {
-        var roots = [LCPath.docPath, LCPath.lcGroupDocPath]
+        var roots = [LCPath.docPath, sharedRoot ?? LCPath.lcGroupDocPath]
         if let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first {
             roots.append(library)
         }
@@ -594,6 +630,9 @@ enum LCStorageScanner {
         var places: [(URL, String)] = []
         places.append((LCPath.docPath, "LiveContainer"))
         places.append((LCPath.lcGroupDocPath, "Grupo de apps"))
+        if let shared = sharedRoot {
+            places.append((shared, "Carpeta compartida"))
+        }
         places.append((FileManager.default.temporaryDirectory, "tmp de LiveContainer"))
         if let library = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first {
             places.append((library, "Library de LiveContainer"))

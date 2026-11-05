@@ -10,6 +10,7 @@ private enum LCStorageSummaryCategory {
     case filesTrash
     case hiddenRoot
     case lcLibrary
+    case sharedRest
     case other
 }
 
@@ -39,6 +40,8 @@ private struct LCStorageSummaryDisplayItem: Identifiable {
             return "Ocultos en la raíz"
         case .lcLibrary:
             return "Datos internos de LiveContainer"
+        case .sharedRest:
+            return "Carpeta compartida (SideStore)"
         case .other:
             return "lc.storage.other".loc
         }
@@ -64,6 +67,8 @@ private struct LCStorageSummaryDisplayItem: Identifiable {
             return .mint
         case .lcLibrary:
             return .brown
+        case .sharedRest:
+            return .indigo
         case .other:
             return .gray
         }
@@ -212,7 +217,8 @@ struct LCStorageSummarySection: View {
             (.orphanContainers, breakdown.orphanContainersSize),
             (.filesTrash, breakdown.filesTrashSize),
             (.hiddenRoot, breakdown.hiddenRootSize),
-            (.lcLibrary, breakdown.lcLibrarySize)
+            (.lcLibrary, breakdown.lcLibrarySize),
+            (.sharedRest, breakdown.sharedRestSize)
         ]
         for (category, size) in extraItems where size > 0 {
             items.append(LCStorageSummaryDisplayItem(category: category, size: size))
