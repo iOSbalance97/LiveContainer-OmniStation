@@ -6,6 +6,10 @@ private enum LCStorageSummaryCategory {
     case appGroup
     case tweaks
     case temporaryFiles
+    case orphanContainers
+    case filesTrash
+    case hiddenRoot
+    case lcLibrary
     case other
 }
 
@@ -27,6 +31,14 @@ private struct LCStorageSummaryDisplayItem: Identifiable {
             return "lc.storage.tweaks".loc
         case .temporaryFiles:
             return "lc.storage.temporaryFiles".loc
+        case .orphanContainers:
+            return "Contenedores sin app"
+        case .filesTrash:
+            return "Eliminados recientemente (Archivos)"
+        case .hiddenRoot:
+            return "Ocultos en la raíz"
+        case .lcLibrary:
+            return "Datos internos de LiveContainer"
         case .other:
             return "lc.storage.other".loc
         }
@@ -44,6 +56,14 @@ private struct LCStorageSummaryDisplayItem: Identifiable {
             return .pink
         case .temporaryFiles:
             return .orange
+        case .orphanContainers:
+            return .yellow
+        case .filesTrash:
+            return .red
+        case .hiddenRoot:
+            return .mint
+        case .lcLibrary:
+            return .brown
         case .other:
             return .gray
         }
@@ -186,6 +206,16 @@ struct LCStorageSummarySection: View {
                     size: breakdown.tweaksSize
                 )
             )
+        }
+
+        let extraItems: [(LCStorageSummaryCategory, Int64)] = [
+            (.orphanContainers, breakdown.orphanContainersSize),
+            (.filesTrash, breakdown.filesTrashSize),
+            (.hiddenRoot, breakdown.hiddenRootSize),
+            (.lcLibrary, breakdown.lcLibrarySize)
+        ]
+        for (category, size) in extraItems where size > 0 {
+            items.append(LCStorageSummaryDisplayItem(category: category, size: size))
         }
 
         // Treat Other as the residual bucket now that more explicit categories are broken out above.
@@ -337,7 +367,7 @@ private struct LCAppStorageDetailView: View {
                         Spacer(minLength: 12)
 
                         Text(formatStorageSize(bundleSize))
-                            .strikethrough(appItem.appModel.appInfo is BuiltInSideStoreAppInfo)
+                            .strikethrough(LCStorageManagementModel.isBuiltInApp(appItem.appModel.appInfo))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }

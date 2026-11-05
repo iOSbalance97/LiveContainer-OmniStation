@@ -558,7 +558,7 @@ struct LCAppSettingsView: View {
             if fm.fileExists(atPath: url.appendingPathComponent("LCContainerInfo.plist").path) {
                 let plistInfo = try PropertyListSerialization.propertyList(from: Data(contentsOf: url.appendingPathComponent("LCContainerInfo.plist")), format: nil)
                 if let plistInfo = plistInfo as? [String : Any] {
-                    let name = plistInfo["folderName"] as? String ?? url.lastPathComponent
+                    let name = plistInfo["name"] as? String ?? url.lastPathComponent
                     container = LCContainer(infoDict: ["folderName": url.lastPathComponent, "name": name, "bookmarkData":bookmark], isShared: false)
                 }
             }

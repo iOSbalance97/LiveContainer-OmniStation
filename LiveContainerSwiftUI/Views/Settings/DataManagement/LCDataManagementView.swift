@@ -220,9 +220,22 @@ struct LCDataManagementView : View {
             }
         }
         
+        // A folder whose LCContainerInfo.plist says it belongs to an installed app is almost always a container
+        // renamed in Files (LiveContainer lost track of it): it's kept, it can be repaired in Storage management.
+        var installedBundleIds = Set<String>()
+        for app in sharedModel.apps + sharedModel.hiddenApps {
+            if let bundleId = app.appInfo.bundleIdentifier() {
+                installedBundleIds.insert(bundleId)
+            }
+        }
         var foldersToDelete : [String]  = []
         for appDataFolderName in sharedModel.appDataFolderNames {
             if folderNameToAppDict[appDataFolderName] == nil {
+                let plistURL = LCPath.dataPath.appendingPathComponent(appDataFolderName).appendingPathComponent("LCContainerInfo.plist")
+                if let owner = (NSDictionary(contentsOf: plistURL) as? [String: Any])?["appIdentifier"] as? String,
+                   installedBundleIds.contains(owner) {
+                    continue
+                }
                 foldersToDelete.append(appDataFolderName)
             }
         }
@@ -304,6 +317,9 @@ struct LCDataManagementView : View {
         var allApps = sharedModel.apps + sharedModel.hiddenApps
         if UserDefaults.sideStoreExist() {
             allApps.append(LCAppModel(appInfo: BuiltInSideStoreAppInfo.shared))
+        }
+        if UserDefaults.omniStationExist() {
+            allApps.append(LCAppModel(appInfo: BuiltInOmniStationAppInfo.shared))
         }
         
         var cleanedCount = 0
